@@ -46,15 +46,6 @@ No uploads • No servers • No tracking • Just your browser.
 
 ---
 
-## Technology
-
-- React
-- Vite
-- FFmpeg WebAssembly
-- Lucide React
-
----
-
 ## Privacy
 
 FFmPaws processes your videos entirely inside your browser.
