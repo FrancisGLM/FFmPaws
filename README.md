@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://i.imgur.com/lRs6tR6.png" alt="FFmPaws Logo" width="180">
+<img src="https://i.imgur.com/NzKffAi.png" alt="FFmPaws Logo" width="180">
 
 # FFmPaws
 
