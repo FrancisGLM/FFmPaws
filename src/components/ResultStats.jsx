@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Download, RefreshCw, Sparkles, FileVideo, HardDrive, Percent, Maximize2 } from 'lucide-react';
+import { Download, RefreshCw, Sparkles, FileVideo, HardDrive, Percent, Maximize2, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatBytes } from '../services/ffmpegService';
 import VideoCompareViewer from './VideoCompareViewer';
@@ -10,6 +10,7 @@ export default function ResultStats({
   compressedUrl,
   resolution,
   onReset,
+  onUseCompressed,
 }) {
   const originalSize = originalFile?.size || 0;
   const compressedSize = compressedBlob?.size || 0;
@@ -77,6 +78,19 @@ export default function ResultStats({
           Comprimir otro video
         </button>
       </div>
+
+      {/* Use compressed video as new input */}
+      {onUseCompressed && (
+        <div className="use-compressed-row">
+          <button className="use-compressed-btn" onClick={onUseCompressed}>
+            <ArrowRight className="w-4 h-4" />
+            Usar este video como entrada nueva
+          </button>
+          <span className="use-compressed-hint">
+            Seguí editando: recortá, reencuadrá o agregá marca de agua al video comprimido
+          </span>
+        </div>
+      )}
     </section>
   );
 }

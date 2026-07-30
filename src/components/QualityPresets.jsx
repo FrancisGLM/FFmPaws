@@ -29,7 +29,7 @@ const PRESETS = [
   },
 ];
 
-export default function QualityPresets({ onStartCompress, isProcessing, disabledEngine }) {
+export default function QualityPresets({ onStartCompress, isProcessing, disabledEngine, buttonLabel }) {
   const [activePreset, setActivePreset] = useState('high');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -188,7 +188,7 @@ export default function QualityPresets({ onStartCompress, isProcessing, disabled
         disabled={isProcessing || disabledEngine}
       >
         <Play className="w-5 h-5 fill-current" />
-        {isProcessing ? 'Comprimiendo video...' : 'Comprimir Video Ahora'}
+        {isProcessing ? 'Comprimiendo video...' : (buttonLabel || 'Comprimir Video Ahora')}
       </button>
     </section>
   );

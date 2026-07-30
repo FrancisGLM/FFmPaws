@@ -83,8 +83,15 @@ export async function getFFmpeg(onStatusUpdate, onLog, onProgress) {
 
 /**
  * Runs compression on a video file with specified parameters.
+ * Now supports trim, crop, and watermark settings.
+ *
+ * settings: { crf, width, presetSpeed, fps, audioBitrate, muteAudio }
+ * extras:   { trimStart, trimEnd, cropRect, watermark }
+ *   - trimStart / trimEnd: seconds (0 = unused)
+ *   - cropRect: { x, y, w, h } in percentages of video (100 = full)
+ *   - watermark: { file, x, y, scale, opacity } — file is a File/Blob, x/y/scale in %, opacity 0-1
  */
-export async function compressVideo({ file, settings, onLog, onProgress, onStatus }) {
+export async function compressVideo({ file, settings, extras, onLog, onProgress, onStatus }) {
   onStatus?.('Preparando motor...');
   const ffmpeg = await getFFmpeg();
 
@@ -93,12 +100,43 @@ export async function compressVideo({ file, settings, onLog, onProgress, onStatu
   const ext = extMatch ? extMatch[0].toLowerCase() : '.mp4';
   const inputName = `input_${Date.now()}${ext}`;
   const outputName = `output_${Date.now()}.mp4`;
+  let watermarkInputName = null;
 
   onStatus?.('Cargando video en memoria del navegador...');
   await ffmpeg.writeFile(inputName, await fetchFile(file));
 
+  // Load watermark image if provided
+  if (extras?.watermark?.file) {
+    const wmExt = extras.watermark.file.name?.match(/\.[a-zA-Z0-9]+$/)?.[0] || '.png';
+    watermarkInputName = `watermark_${Date.now()}${wmExt}`;
+    onStatus?.('Cargando marca de agua...');
+    await ffmpeg.writeFile(watermarkInputName, await fetchFile(extras.watermark.file));
+  }
+
   // Build FFmpeg command arguments
-  const args = ['-i', inputName];
+  const args = [];
+
+  // Trim: -ss before -i for fast seeking
+  if (extras?.trimStart && extras.trimStart > 0) {
+    args.push('-ss', String(extras.trimStart));
+  }
+
+  args.push('-i', inputName);
+
+  // Trim: -to for end time (relative to -ss if used)
+  if (extras?.trimEnd && extras.trimEnd > 0) {
+    const duration = (extras.trimStart && extras.trimStart > 0)
+      ? extras.trimEnd - extras.trimStart
+      : extras.trimEnd;
+    if (duration > 0) {
+      args.push('-t', String(duration));
+    }
+  }
+
+  // Add watermark as second input
+  if (watermarkInputName) {
+    args.push('-i', watermarkInputName);
+  }
 
   // Video Codec & Quality
   args.push('-c:v', 'libx264');
@@ -106,9 +144,57 @@ export async function compressVideo({ file, settings, onLog, onProgress, onStatu
   args.push('-preset', settings.presetSpeed || 'veryfast');
   args.push('-pix_fmt', 'yuv420p');
 
+  // Build video filter chain
+  const vfFilters = [];
+
   // Resolution Scaling
   if (settings.width && settings.width > 0) {
-    args.push('-vf', `scale='min(${settings.width},iw)':-2`);
+    vfFilters.push(`scale='min(${settings.width},iw)':-2`);
+  }
+
+  // Crop filter
+  if (extras?.cropRect) {
+    const { x, y, w, h } = extras.cropRect;
+    if (x !== 0 || y !== 0 || w !== 100 || h !== 100) {
+      // Convert percentage to pixel expressions
+      const cropW = `iw*${(w / 100).toFixed(4)}`;
+      const cropH = `ih*${(h / 100).toFixed(4)}`;
+      const cropX = `iw*${(x / 100).toFixed(4)}`;
+      const cropY = `ih*${(y / 100).toFixed(4)}`;
+      vfFilters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`);
+    }
+  }
+
+  // Apply video filters (without watermark for now)
+  if (watermarkInputName) {
+    // Complex filtergraph for watermark overlay
+    const wm = extras.watermark;
+    // Scale watermark relative to video width, position in %
+    const wmScaleW = `iw*${(wm.scale / 100).toFixed(4)}`;
+    const overlayX = `main_w*${(wm.x / 100).toFixed(4)}`;
+    const overlayY = `main_h*${(wm.y / 100).toFixed(4)}`;
+    const opacity = wm.opacity.toFixed(2);
+
+    let filterComplex = '';
+
+    // Pre-filters on input video
+    if (vfFilters.length > 0) {
+      filterComplex += `[0:v]${vfFilters.join(',')}[base];`;
+    } else {
+      filterComplex += '[0:v]null[base];';
+    }
+
+    // Scale watermark and set opacity
+    filterComplex += `[1:v]scale=${wmScaleW}:-1,format=rgba,colorchannelmixer=aa=${opacity}[wm];`;
+
+    // Overlay
+    filterComplex += `[base][wm]overlay=${overlayX}:${overlayY}[out]`;
+
+    args.push('-filter_complex', filterComplex);
+    args.push('-map', '[out]');
+    args.push('-map', '0:a?');
+  } else if (vfFilters.length > 0) {
+    args.push('-vf', vfFilters.join(','));
   }
 
   // Target FPS if specified
@@ -128,7 +214,8 @@ export async function compressVideo({ file, settings, onLog, onProgress, onStatu
   args.push('-movflags', '+faststart');
   args.push(outputName);
 
-  onStatus?.('Comprimiendo video con FFmpeg...');
+  onStatus?.('Procesando video con FFmpeg...');
+  onLog?.(`> ffmpeg ${args.join(' ')}`);
   await ffmpeg.exec(args);
 
   onStatus?.('Generando archivo final...');
@@ -139,6 +226,7 @@ export async function compressVideo({ file, settings, onLog, onProgress, onStatu
   try {
     await ffmpeg.deleteFile(inputName);
     await ffmpeg.deleteFile(outputName);
+    if (watermarkInputName) await ffmpeg.deleteFile(watermarkInputName);
   } catch (e) {
     console.warn('Non-critical cleanup warning:', e);
   }

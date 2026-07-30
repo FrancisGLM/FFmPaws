@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, Film, ShieldCheck, RefreshCw } from 'lucide-react';
+import { UploadCloud, Film, ShieldCheck } from 'lucide-react';
 import { formatBytes } from '../services/ffmpegService';
 
-export default function HeroDropzone({ currentFile, onFileSelect, onChangeFile, onError }) {
+export default function HeroDropzone({ currentFile, onFilesSelect, onChangeFile, onError }) {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -19,21 +19,20 @@ export default function HeroDropzone({ currentFile, onFileSelect, onChangeFile, 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) validateAndSetFile(file);
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('video/'));
+    if (files.length > 0) {
+      onFilesSelect(files);
+    } else {
+      onError('No se encontraron videos válidos (usá MP4, MOV, WEBM, AVI o MKV).');
+    }
   };
 
   const handleInputChange = (e) => {
-    const file = e.target.files[0];
-    if (file) validateAndSetFile(file);
-  };
-
-  const validateAndSetFile = (file) => {
-    if (!file.type.startsWith('video/')) {
-      onError('El archivo seleccionado no es un video válido (usá MP4, MOV, WEBM, AVI o MKV).');
-      return;
+    const files = Array.from(e.target.files).filter((f) => f.type.startsWith('video/'));
+    if (files.length > 0) {
+      onFilesSelect(files);
     }
-    onFileSelect(file);
+    e.target.value = '';
   };
 
   return (
@@ -48,7 +47,7 @@ export default function HeroDropzone({ currentFile, onFileSelect, onChangeFile, 
           Conservá <span>la nitidez</span>.
         </h1>
         <p className="sub">
-          Comprimí tus videos usando FFmpeg directamente en tu navegador. Nada se sube a ningún servidor externo.
+          Comprimí tus videos usando FFmpeg directamente en tu navegador. Podés procesar varios archivos juntos o uno individual.
         </p>
       </div>
 
@@ -58,6 +57,7 @@ export default function HeroDropzone({ currentFile, onFileSelect, onChangeFile, 
           ref={fileInputRef}
           onChange={handleInputChange}
           accept="video/*"
+          multiple
           style={{ display: 'none' }}
         />
 
@@ -71,9 +71,9 @@ export default function HeroDropzone({ currentFile, onFileSelect, onChangeFile, 
           >
             <button type="button" className="pill-btn">
               <UploadCloud className="w-5 h-5" />
-              Seleccionar video
+              Seleccionar video(s)
             </button>
-            <div className="drop-hint">o arrastrá y soltá un archivo acá</div>
+            <div className="drop-hint">o arrastrá y soltá uno o varios videos acá</div>
             <div className="drop-formats">
               <span className="format-tag">MP4</span>
               <span className="format-tag">MOV</span>
