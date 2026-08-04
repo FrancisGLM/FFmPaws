@@ -142,14 +142,13 @@ export async function compressVideo({
   if (onLog) ffmpeg.on("log", logHandler);
   if (onProgress) ffmpeg.on("progress", progressHandler);
 
-  try {
-    // Determine file extension
-    const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
-    const ext = extMatch ? extMatch[0].toLowerCase() : ".mp4";
-    const inputName = `input_${Date.now()}${ext}`;
-    const outputName = `output_${Date.now()}.mp4`;
-    let watermarkInputName = null;
+  const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+  const ext = extMatch ? extMatch[0].toLowerCase() : ".mp4";
+  const inputName = `input_${Date.now()}${ext}`;
+  const outputName = `output_${Date.now()}.mp4`;
+  let watermarkInputName = null;
 
+  try {
     onStatus?.("Cargando video en memoria del navegador...");
     await ffmpeg.writeFile(inputName, await fetchFile(file));
 
@@ -273,19 +272,20 @@ export async function compressVideo({
 
     onStatus?.("Generando archivo final...");
     const data = await ffmpeg.readFile(outputName);
-    const compressedBlob = new Blob([data.buffer], { type: "video/mp4" });
-
-    // Cleanup temporary files in WASM memory
-    try {
-      await ffmpeg.deleteFile(inputName);
-      await ffmpeg.deleteFile(outputName);
-      if (watermarkInputName) await ffmpeg.deleteFile(watermarkInputName);
-    } catch (e) {
-      console.warn("Non-critical cleanup warning:", e);
-    }
+    const compressedBlob = new Blob([data], { type: "video/mp4" });
 
     return compressedBlob;
   } finally {
+    // Cleanup temporary files in WASM memory
+    const deleteSafe = async (name) => {
+      try { if (name) await ffmpeg.deleteFile(name); } catch (e) {}
+    };
+    await Promise.all([
+      deleteSafe(inputName),
+      deleteSafe(outputName),
+      deleteSafe(watermarkInputName)
+    ]);
+
     if (onLog) ffmpeg.off("log", logHandler);
     if (onProgress) ffmpeg.off("progress", progressHandler);
   }
