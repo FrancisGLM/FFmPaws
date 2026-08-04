@@ -41,16 +41,20 @@ export async function getFFmpeg(onStatusUpdate, onLog, onProgress) {
     });
 
     const createInstance = () => {
-      const ffmpeg = new FFmpeg();
-      ffmpeg.on("log", ({ message }) => onLog?.(message));
-      ffmpeg.on("progress", ({ progress }) => {
-        onProgress?.(Math.min(100, Math.max(0, Math.round(progress * 100))));
-      });
-      return ffmpeg;
+      return new FFmpeg();
     };
 
     try {
       let ffmpeg = createInstance();
+
+      const loadLogHandler = ({ message }) => onLog?.(message);
+      const loadProgressHandler = ({ progress }) => {
+        onProgress?.(Math.min(100, Math.max(0, Math.round(progress * 100))));
+      };
+
+      ffmpeg.on("log", loadLogHandler);
+      ffmpeg.on("progress", loadProgressHandler);
+
       try {
         // Intento 1: Carga local (rápido, offline)
         onStatusUpdate?.({
@@ -64,7 +68,12 @@ export async function getFFmpeg(onStatusUpdate, onLog, onProgress) {
         await ffmpeg.load({ coreURL, wasmURL });
       } catch (localErr) {
         console.warn("Carga local falló, reintentando vía CDN:", localErr);
+        ffmpeg.off("log", loadLogHandler);
+        ffmpeg.off("progress", loadProgressHandler);
+        
         ffmpeg = createInstance(); // Recrear instancia para evitar worker corrupto
+        ffmpeg.on("log", loadLogHandler);
+        ffmpeg.on("progress", loadProgressHandler);
 
         const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
         onStatusUpdate?.({
@@ -77,6 +86,9 @@ export async function getFFmpeg(onStatusUpdate, onLog, onProgress) {
 
         await ffmpeg.load({ coreURL, wasmURL });
       }
+
+      ffmpeg.off("log", loadLogHandler);
+      ffmpeg.off("progress", loadProgressHandler);
 
       ffmpegInstance = ffmpeg;
       onStatusUpdate?.({ status: "ready", text: "Motor listo", pct: 100 });
