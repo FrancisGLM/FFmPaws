@@ -62,7 +62,7 @@ export default function VideoCompareViewer({ originalUrl, compressedUrl }) {
   // Drag handler for interactive handle on video
   const handleMouseMove = useCallback((e) => {
     if (!compareBoxRef.current) return;
-    if (e.type === 'touchmove') {
+    if (e.type === 'touchmove' && e.cancelable) {
       e.preventDefault();
     }
     const rect = compareBoxRef.current.getBoundingClientRect();
@@ -82,12 +82,14 @@ export default function VideoCompareViewer({ originalUrl, compressedUrl }) {
       window.addEventListener('mouseup', handleMouseUp);
       window.addEventListener('touchmove', handleMouseMove, { passive: false });
       window.addEventListener('touchend', handleMouseUp);
+      window.addEventListener('touchcancel', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('touchmove', handleMouseMove);
       window.removeEventListener('touchend', handleMouseUp);
+      window.removeEventListener('touchcancel', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 

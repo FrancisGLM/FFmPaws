@@ -1292,6 +1292,7 @@ footer {
   border: 2px solid var(--emerald);
   box-shadow: 0 0 0 9999px transparent;
   cursor: move;
+  touch-action: none;
 }
 .crop-grid-h, .crop-grid-v {
   position: absolute;

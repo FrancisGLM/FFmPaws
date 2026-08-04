@@ -35,11 +35,13 @@ export default function ResultStats({
   const [localOriginalUrl, setLocalOriginalUrl] = React.useState('');
 
   useEffect(() => {
-    if (originalFile) {
-      const url = URL.createObjectURL(originalFile);
-      setLocalOriginalUrl(url);
-      return () => URL.revokeObjectURL(url);
+    if (!originalFile) {
+      setLocalOriginalUrl('');
+      return;
     }
+    const url = URL.createObjectURL(originalFile);
+    setLocalOriginalUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [originalFile]);
 
   return (
